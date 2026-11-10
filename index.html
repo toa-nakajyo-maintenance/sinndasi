@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>芯出し計算</title>
+<meta name="theme-color" content="#1e293b">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>[hidden]{display:none!important}body{margin:0}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+</head>
+<body>
+<style>
+/* Layout: 計測端末風。紺の固定ヘッダー（判定チップ＋タブ）→ 結果カード → 機械ビュー → 許容値メーター → 軸線 → 入力（寸法・測定・補正）
+   明るいグレーの作業画面に統一（意図的にライトテーマのみ） */
+:root{
+  --bg:#dfe4ea; --panel:#ffffff; --panel2:#f1f4f7; --fg:#1e293b; --muted:#64748b; --line:#cbd5e1;
+  --nav:#1e293b; --nav2:#0f172a; --nav-fg:#e2e8f0; --nav-mute:#94a3b8; --accent:#0284c7;
+  --ok:#15803d; --ok-bg:#dcfce7; --ng:#dc2626; --ng-bg:#fee2e2; --warn:#b45309; --warn-bg:#fef3c7;
+  --add:#dc2626; --add-bg:#fef2f2; --rem:#1d4ed8; --rem-bg:#eff6ff;
+  --rim:#c2410c; --rim-bg:#fdebe0; --face:#0e7490; --face-bg:#dff3f5; --on-c:#ffffff;
+  --meas:#c8321e; --mach-l:#b9d2ee; --mach-d:#1f4672; --steel:#334155; --qr-bg:#ffffff;
+  --f-body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.55}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--nav2)}
+.in{max-width:1040px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* ヘッダー */
+.hd{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--nav);color:var(--nav-fg);box-shadow:0 2px 10px rgba(15,23,42,.25)}
+.hd .row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:10px 6px}
+.hd .ttl{display:flex;flex-direction:column;line-height:1.2}
+.hd .ttl small{font-family:var(--f-num);font-size:10px;letter-spacing:.18em;color:var(--nav-mute)}
+.hd .ttl b{font-size:19px;letter-spacing:.06em}
+.chip{font-size:12px;font-weight:700;padding:4px 12px;border-radius:99px;background:#334155;color:var(--nav-fg);white-space:nowrap}
+.chip.ok{background:var(--ok);color:#fff}.chip.ng{background:var(--ng);color:#fff}
+.tabs{display:flex;gap:4px;overflow-x:auto;padding-block:0 8px;scrollbar-width:none}
+.tabs button{flex:0 0 auto;border:0;background:transparent;color:var(--nav-mute);font:700 13px var(--f-body);padding:6px 12px;border-radius:4px;cursor:pointer;letter-spacing:.04em}
+.tabs button.on{background:var(--accent);color:#fff}
+.tabs button:focus-visible{outline:2px solid #fff;outline-offset:1px}
+
+main.in{display:flex;flex-direction:column;gap:12px;padding-block:14px 40px}
+section{scroll-margin-top:calc(env(safe-area-inset-top,0px) + 100px)}
+.panel{background:var(--panel);border-radius:6px;box-shadow:0 1px 3px rgba(15,23,42,.1);padding:14px}
+.ph{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+.ph h2{margin:0;font-size:15px;letter-spacing:.04em}
+.ph span{font-size:11px;color:var(--muted);font-family:var(--f-num);letter-spacing:.08em}
+
+/* 結果カード */
+.metrics{display:grid;grid-template-columns:1.3fr repeat(4,minmax(0,1fr));gap:10px}
+.mc{background:var(--panel);border-radius:6px;box-shadow:0 1px 3px rgba(15,23,42,.1);padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-width:0;border-top:4px solid var(--line)}
+.mk{font-size:12px;font-weight:700;color:var(--muted);display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap}
+.mk small{font-weight:400;font-family:var(--f-num);font-size:10px;letter-spacing:.08em}
+.mv{font-family:var(--f-num);font-size:28px;font-weight:600;line-height:1.15;font-variant-numeric:tabular-nums}
+.mv u{text-decoration:none;font-size:12px;color:var(--muted);margin-left:3px}
+.ma{font-weight:700;font-size:14px}
+.ms2{font-size:11px;color:var(--muted);line-height:1.4}
+.mc.add{border-top-color:var(--add)}.mc.add .mv,.mc.add .ma{color:var(--add)}
+.mc.rem{border-top-color:var(--rem)}.mc.rem .mv,.mc.rem .ma{color:var(--rem)}
+.mc.mov{border-top-color:var(--accent)}.mc.mov .mv,.mc.mov .ma{color:var(--accent)}
+.mc.zero .mv,.mc.none .mv{color:var(--muted)}
+.mc.st .mv{font-family:var(--f-body);font-size:22px;font-weight:700}
+.mc.st.ok{border-top-color:var(--ok)}.mc.st.ok .mv{color:var(--ok)}
+.mc.st.ng{border-top-color:var(--ng)}.mc.st.ng .mv{color:var(--ng)}
+.rc{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
+.tag{font-size:11px;font-weight:700;padding:1px 8px;border-radius:99px}
+.tag.ok{background:var(--ok-bg);color:var(--ok)}.tag.warn{background:var(--warn-bg);color:var(--warn)}
+
+/* 機械ビュー */
+.view{padding:0;overflow:hidden}
+.view .ph{padding:12px 14px 0}
+.machine{width:100%;height:auto;display:block}
+
+/* メーター */
+.meters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.mt{background:var(--panel);border-radius:6px;box-shadow:0 1px 3px rgba(15,23,42,.1);padding:10px 12px;min-width:0}
+.mh{display:flex;justify-content:space-between;align-items:baseline;gap:6px;font-size:12px;font-weight:700;color:var(--steel)}
+.mh b{font-family:var(--f-num);font-size:16px;font-variant-numeric:tabular-nums}
+.okc{color:var(--ok)}.ngc{color:var(--ng)}
+.tr{position:relative;height:12px;border-radius:6px;background:var(--panel2);border:1px solid var(--line);margin:8px 0 4px}
+.tr .band{position:absolute;top:0;bottom:0;background:var(--ok-bg);border-left:2px solid var(--ok);border-right:2px solid var(--ok)}
+.tr .z{position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--muted)}
+.tr .pt{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:var(--steel);border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.tr .pt.ok{background:var(--ok)}.tr .pt.ng{background:var(--ng)}
+.ms{display:flex;justify-content:space-between;font-family:var(--f-num);font-size:10px;color:var(--muted)}
+
+/* 軸線 */
+.axes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.axes h3{margin:0 0 4px;font-size:13px;color:var(--steel)}
+.svgbox{overflow-x:auto}
+svg text{font-family:var(--f-body)}
+.note{font-size:12px;color:var(--muted);margin:8px 0 0}
+
+/* 入力 */
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted);min-width:0}
+.field{display:flex;gap:4px}
+input{width:100%;min-width:0;font-family:var(--f-num);font-size:17px;padding:8px;border:1px solid var(--line);border-radius:4px;background:var(--panel2);color:var(--fg);font-variant-numeric:tabular-nums}
+input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.pm{flex:0 0 38px;border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:4px;font-size:16px;font-weight:700;cursor:pointer}
+.sub-h{margin:14px 0 8px;font-size:13px;color:var(--steel);display:flex;gap:8px;align-items:baseline}
+.sub-h span{font-size:11px;font-weight:400;color:var(--muted)}
+.cfig{display:flex;gap:12px;align-items:center;margin:0 0 12px}
+.cfig svg{flex:0 0 100px;width:100px;height:100px}
+.cfig p{margin:0;font-size:13px;color:var(--muted)}
+.cfig b{color:var(--meas)}
+
+.dials{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.gauge{--c:var(--rim);--cs:var(--rim-bg);display:flex;flex-direction:column;align-items:center;gap:10px;min-width:0}
+.gauge.face{--c:var(--face);--cs:var(--face-bg)}
+.ghead{display:flex;align-items:center;gap:10px;width:100%;max-width:340px;background:var(--c);color:var(--on-c);border-radius:6px;padding:6px 12px}
+.ghead svg{flex:0 0 54px;width:54px;height:36px}
+.ghead b{font-size:20px;letter-spacing:.06em;line-height:1.2}
+.ghead span{display:block;font-size:12px;line-height:1.3}
+.dial{position:relative;width:100%;max-width:340px;aspect-ratio:1;border-radius:50%;border:6px solid var(--c);background:var(--cs);
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));padding:12px;align-items:center;justify-items:center}
+.dial::before{content:"";position:absolute;inset:14px;border-radius:50%;border:2px dashed var(--c);opacity:.35;pointer-events:none}
+.dial label{position:relative;align-items:center;width:100%;color:var(--fg);font-weight:700;font-size:13px}
+.dial .field input{font-size:16px;padding:6px 2px;text-align:center;background:var(--panel)}
+.dial .pm{flex:0 0 28px;font-size:14px}
+.dial .zero{position:relative;text-align:center;font-weight:700;font-size:13px;line-height:1.2}
+.dial .zero i{display:block;font-style:normal;font-family:var(--f-num);font-size:20px;color:var(--c)}
+.dial .c{grid-column:2;grid-row:2;text-align:center;color:var(--c);line-height:1}
+.dial .c b{display:block;font-size:44px}
+.dial .c small{font-family:var(--f-num);font-size:15px;font-weight:600}
+.p12{grid-column:2;grid-row:1}.p3{grid-column:3;grid-row:2}.p6{grid-column:2;grid-row:3}.p9{grid-column:1;grid-row:2}
+.chk{font-size:12px;font-weight:700;padding:4px 10px;border-radius:99px;text-align:center}
+.chk.ok{background:var(--ok-bg);color:var(--ok)}.chk.warn{background:var(--warn-bg);color:var(--warn)}
+
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--fg);border-radius:4px;padding:8px 14px;font:14px var(--f-body);cursor:pointer}
+.qr{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.qrbox{background:var(--qr-bg);padding:10px;border-radius:6px;border:1px solid var(--line);width:182px;height:182px;flex:0 0 182px}
+.qrbox svg{width:160px;height:160px;display:block}
+.qr p{margin:0;font-size:13px;color:var(--muted);flex:1 1 200px;min-width:0;word-break:break-all}
+details summary{cursor:pointer;font-weight:700;font-size:14px}
+details li,details p{font-size:13px;color:var(--muted)}
+
+@media (max-width:860px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metrics .st{grid-column:1/-1}.meters{grid-template-columns:repeat(2,minmax(0,1fr))}.axes{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:560px){.dials{grid-template-columns:minmax(0,1fr)}.mv{font-size:24px}}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}.tr .pt{transition:left .25s}}
+</style>
+
+<header class="hd">
+  <div class="in">
+    <div class="row">
+      <div class="ttl"><small>SHAFT ALIGNMENT</small><b>芯出し計算</b></div>
+      <span style="display:flex;gap:6px;align-items:center"><span class="chip" id="net" hidden>オフライン</span><span class="chip" id="hdStatus">入力待ち</span></span>
+    </div>
+    <nav class="tabs" aria-label="セクション">
+      <button data-go="sec-res" class="on">結果</button>
+      <button data-go="sec-dim">寸法・許容値</button>
+      <button data-go="sec-meas">測定</button>
+      <button data-go="sec-opt">補正・シム</button>
+    </nav>
+  </div>
+</header>
+
+<main class="in">
+  <section id="sec-res" style="display:flex;flex-direction:column;gap:12px">
+    <div class="metrics" id="metrics"></div>
+
+    <div class="panel view">
+      <div class="ph"><h2>機器配置</h2><span>PUMP FIXED / MOTOR MOVE</span></div>
+      <svg class="machine" viewBox="0 0 900 430" role="img" aria-label="左がポンプ（固定）、右がモーター（調整）。カップリング中心から前足A・後足Bまでの距離a・b">
+      <defs>
+        <linearGradient id="st-wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9ecef"/><stop offset=".68" stop-color="#f7f8f9"/><stop offset=".69" stop-color="#e3e7eb"/><stop offset="1" stop-color="#cfd5db"/></linearGradient>
+        <radialGradient id="st-spot" cx=".55" cy=".45" r=".6"><stop offset="0" stop-color="#ffffff" stop-opacity=".9"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+        <linearGradient id="cy-h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f6fc0"/><stop offset=".18" stop-color="#7fb4f2"/><stop offset=".45" stop-color="#2a6ec7"/><stop offset=".8" stop-color="#0e3675"/><stop offset="1" stop-color="#071d42"/></linearGradient>
+        <linearGradient id="st-h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9c1c9"/><stop offset=".18" stop-color="#ffffff"/><stop offset=".45" stop-color="#eef1f3"/><stop offset=".8" stop-color="#b3bcc5"/><stop offset="1" stop-color="#848f9a"/></linearGradient>
+        <linearGradient id="cy-v" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0e3675"/><stop offset=".3" stop-color="#79b3f7"/><stop offset=".6" stop-color="#2a6ec7"/><stop offset="1" stop-color="#0c2d61"/></linearGradient>
+        <linearGradient id="cy-dark" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8d98a3"/><stop offset=".25" stop-color="#d7dde3"/><stop offset=".7" stop-color="#7d8894"/><stop offset="1" stop-color="#4f5963"/></linearGradient>
+        <radialGradient id="vol" cx=".38" cy=".32" r=".75"><stop offset="0" stop-color="#8cc0fa"/><stop offset=".45" stop-color="#2a6ec7"/><stop offset=".8" stop-color="#11407f"/><stop offset="1" stop-color="#071d42"/></radialGradient>
+        <linearGradient id="face" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4b8cd9"/><stop offset="1" stop-color="#0e3675"/></linearGradient>
+        <linearGradient id="top" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9cc8fb"/><stop offset="1" stop-color="#4b8cd9"/></linearGradient>
+        <linearGradient id="bs-top" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e2e6ea"/></linearGradient>
+        <linearGradient id="side" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1e5cb3"/><stop offset="1" stop-color="#0b2f66"/></linearGradient>
+        <linearGradient id="bs-side" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c7ced5"/><stop offset="1" stop-color="#97a2ad"/></linearGradient>
+        <linearGradient id="shim" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c9a227"/><stop offset=".5" stop-color="#f6e7a0"/><stop offset="1" stop-color="#a8861f"/></linearGradient>
+        <filter id="sh" x="-10%" y="-10%" width="120%" height="140%"><feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#2a333c" flood-opacity=".18"/></filter>
+        <filter id="blur"><feGaussianBlur stdDeviation="6"/></filter>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#334155"/></marker>
+      </defs>
+
+      <!-- スタジオ背景 -->
+      <rect x="0" y="0" width="900" height="430" rx="10" fill="url(#st-wall)"/>
+      <ellipse cx="480" cy="190" rx="460" ry="200" fill="url(#st-spot)"/>
+
+      <!-- 共通ベース（上面＋前面） -->
+      <ellipse cx="455" cy="300" rx="420" ry="14" fill="#1f2730" opacity=".18" filter="url(#blur)"/>
+      <polygon points="70,262 840,262 860,280 50,280" fill="url(#bs-top)" stroke="#aab4be" stroke-width="1"/>
+      <rect x="50" y="280" width="810" height="18" fill="url(#bs-side)" stroke="#8f9aa5" stroke-width="1"/>
+      <g fill="#8f9aa5"><circle cx="90" cy="271" r="4"/><circle cx="820" cy="271" r="4"/></g>
+
+      <!-- ===== ポンプ ===== -->
+      <g filter="url(#sh)">
+        <!-- 脚 -->
+        <path d="M150,262 L162,214 L258,214 L270,262 Z" fill="url(#face)" stroke="#123f80"/>
+        <rect x="140" y="256" width="140" height="8" rx="2" fill="url(#cy-dark)"/>
+        <path d="M290,262 L298,196 L330,196 L338,262 Z" fill="url(#face)" stroke="#123f80"/>
+        <!-- 吸込ノズル -->
+        <rect x="104" y="146" width="56" height="48" fill="url(#cy-h)"/>
+        <ellipse cx="104" cy="170" rx="11" ry="34" fill="url(#cy-v)" stroke="#0b2f66"/>
+        <ellipse cx="101" cy="170" rx="6" ry="20" fill="#0b1b36"/>
+        <!-- 吐出ノズル -->
+        <rect x="186" y="74" width="48" height="52" fill="url(#cy-v)"/>
+        <ellipse cx="210" cy="74" rx="34" ry="10" fill="url(#top)" stroke="#0b2f66"/>
+        <ellipse cx="210" cy="72" rx="20" ry="5.5" fill="#0b1b36"/>
+        <!-- ボリュート -->
+        <circle cx="210" cy="172" r="64" fill="url(#vol)" stroke="#0b2f66"/>
+        <path d="M210,108 A64,64 0 0 1 274,172" fill="none" stroke="#b9dafc" stroke-width="3" opacity=".7"/>
+        <circle cx="210" cy="172" r="44" fill="none" stroke="#123f80" stroke-width="2"/>
+        <g fill="#dbe7f5"><circle cx="210" cy="114" r="3"/><circle cx="262" cy="150" r="3"/><circle cx="262" cy="194" r="3"/><circle cx="210" cy="230" r="3"/><circle cx="158" cy="194" r="3"/><circle cx="158" cy="150" r="3"/></g>
+        <!-- 軸受フレーム -->
+        <rect x="268" y="140" width="80" height="62" rx="6" fill="url(#cy-h)" stroke="#123f80"/>
+        <g stroke="#0b2f66" stroke-width="2"><line x1="285" y1="142" x2="285" y2="200"/><line x1="305" y1="142" x2="305" y2="200"/><line x1="325" y1="142" x2="325" y2="200"/></g>
+        <rect x="262" y="148" width="10" height="46" rx="3" fill="url(#cy-dark)"/>
+        <rect x="346" y="152" width="10" height="38" rx="3" fill="url(#cy-dark)"/>
+        <!-- 軸 -->
+        <rect x="356" y="164" width="16" height="14" fill="url(#cy-dark)"/>
+      </g>
+
+      <!-- ===== カップリング ===== -->
+      <g filter="url(#sh)">
+        <rect x="372" y="144" width="22" height="54" rx="3" fill="url(#st-h)" stroke="#8f9aa5"/>
+        <rect x="398" y="144" width="22" height="54" rx="3" fill="url(#st-h)" stroke="#8f9aa5"/>
+        <rect x="393" y="152" width="6" height="38" fill="#3d4652"/>
+        <g fill="#6b7682"><circle cx="383" cy="152" r="2.5"/><circle cx="409" cy="152" r="2.5"/><circle cx="383" cy="190" r="2.5"/><circle cx="409" cy="190" r="2.5"/></g>
+      </g>
+
+      <!-- ===== モーター ===== -->
+      <g filter="url(#sh)">
+        <!-- 足 -->
+        <path d="M478,254 L486,222 L552,222 L560,254 Z" fill="url(#face)" stroke="#123f80"/>
+        <path d="M688,254 L696,222 L762,222 L770,254 Z" fill="url(#face)" stroke="#123f80"/>
+        <!-- 軸 -->
+        <rect x="420" y="164" width="30" height="14" fill="url(#cy-dark)"/>
+        <!-- 前側エンドブラケット -->
+        <path d="M448,112 Q436,112 436,124 L436,218 Q436,230 448,230 L470,230 L470,112 Z" fill="url(#cy-h)" stroke="#0b2f66"/>
+        <ellipse cx="438" cy="171" rx="5" ry="18" fill="url(#cy-dark)"/>
+        <!-- 本体 -->
+        <rect x="466" y="100" width="300" height="142" rx="8" fill="url(#cy-h)" stroke="#0b2f66"/>
+        <g stroke-width="2">
+          <g stroke="#8cbdf5" opacity=".55"><line x1="472" y1="110" x2="760" y2="110"/><line x1="472" y1="122" x2="760" y2="122"/><line x1="472" y1="134" x2="760" y2="134"/><line x1="472" y1="146" x2="760" y2="146"/><line x1="472" y1="158" x2="760" y2="158"/><line x1="472" y1="170" x2="760" y2="170"/><line x1="472" y1="182" x2="760" y2="182"/><line x1="472" y1="194" x2="760" y2="194"/><line x1="472" y1="206" x2="760" y2="206"/><line x1="472" y1="218" x2="760" y2="218"/><line x1="472" y1="230" x2="760" y2="230"/></g>
+          <g stroke="#071d42" opacity=".55"><line x1="472" y1="113" x2="760" y2="113"/><line x1="472" y1="125" x2="760" y2="125"/><line x1="472" y1="137" x2="760" y2="137"/><line x1="472" y1="149" x2="760" y2="149"/><line x1="472" y1="161" x2="760" y2="161"/><line x1="472" y1="173" x2="760" y2="173"/><line x1="472" y1="185" x2="760" y2="185"/><line x1="472" y1="197" x2="760" y2="197"/><line x1="472" y1="209" x2="760" y2="209"/><line x1="472" y1="221" x2="760" y2="221"/><line x1="472" y1="233" x2="760" y2="233"/></g>
+        </g>
+        <!-- 端子箱 -->
+        <polygon points="570,84 650,84 662,74 582,74" fill="url(#top)" stroke="#123f80"/>
+        <rect x="570" y="84" width="80" height="20" fill="url(#face)" stroke="#123f80"/>
+        <polygon points="650,84 662,74 662,94 650,104" fill="url(#side)" stroke="#123f80"/>
+        <!-- アイボルト -->
+        <circle cx="706" cy="84" r="10" fill="none" stroke="#8f9aa5" stroke-width="4"/>
+        <rect x="702" y="92" width="8" height="10" fill="url(#cy-dark)"/>
+        <!-- 後側エンドブラケット・ファンカバー -->
+        <rect x="762" y="110" width="16" height="122" rx="4" fill="url(#cy-h)" stroke="#0b2f66"/>
+        <path d="M778,116 L820,122 Q836,124 836,140 L836,202 Q836,218 820,220 L778,226 Z" fill="url(#cy-h)" stroke="#0b2f66"/>
+        <g fill="#071d42" opacity=".6"><rect x="792" y="132" width="3" height="78"/><rect x="802" y="132" width="3" height="78"/><rect x="812" y="134" width="3" height="74"/><rect x="822" y="138" width="3" height="66"/></g>
+      </g>
+      <!-- シム・足ボルト -->
+      <rect x="474" y="254" width="90" height="8" fill="url(#shim)" stroke="#8a6d16" stroke-width=".8"/>
+      <rect x="684" y="254" width="90" height="8" fill="url(#shim)" stroke="#8a6d16" stroke-width=".8"/>
+      <g fill="url(#cy-dark)" stroke="#56616c" stroke-width=".8">
+        <rect x="510" y="214" width="18" height="10" rx="1"/><rect x="720" y="214" width="18" height="10" rx="1"/>
+      </g>
+      <g stroke="#56616c" stroke-width="3"><line x1="519" y1="224" x2="519" y2="262"/><line x1="729" y1="224" x2="729" y2="262"/></g>
+
+      <!-- ラベル -->
+      <g font-weight="700" text-anchor="middle">
+        <rect x="140" y="22" width="140" height="28" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="210" y="42" font-size="16" fill="#1e293b">ポンプ（固定）</text>
+        <rect x="546" y="22" width="160" height="28" rx="4" fill="#ffffff" stroke="#c8321e" stroke-width="1.5"/>
+        <text x="626" y="42" font-size="16" fill="#c8321e">モーター（調整）</text>
+      </g>
+
+      <!-- カップリング中心 -->
+      <line x1="396" y1="70" x2="396" y2="404" stroke="#c8321e" stroke-width="2" stroke-dasharray="6 4"/>
+      <rect x="336" y="44" width="120" height="24" rx="4" fill="#ffffff" stroke="#c8321e" stroke-width="1.5"/>
+      <text x="396" y="61" font-size="14" font-weight="700" fill="#c8321e" text-anchor="middle">カップリング中心</text>
+
+      <!-- 前足A・後足B -->
+      <line x1="519" y1="298" x2="519" y2="404" stroke="#64748b" stroke-dasharray="3 3"/>
+      <line x1="729" y1="298" x2="729" y2="404" stroke="#64748b" stroke-dasharray="3 3"/>
+      <g font-size="14" font-weight="700" text-anchor="middle" fill="#1e293b">
+        <rect x="489" y="304" width="60" height="22" rx="4" fill="#ffffff" stroke="#94a3b8"/><text x="519" y="320">前足A</text>
+        <rect x="699" y="304" width="60" height="22" rx="4" fill="#ffffff" stroke="#94a3b8"/><text x="729" y="320">後足B</text>
+      </g>
+
+      <!-- 寸法 a / b -->
+      <line x1="398" y1="352" x2="517" y2="352" stroke="#334155" stroke-width="1.6" marker-start="url(#ar)" marker-end="url(#ar)"/>
+      <rect x="403" y="339" width="108" height="26" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+      <text id="dimA" x="457" y="357" font-size="15" font-weight="700" fill="#0f172a" text-anchor="middle">a = 180 mm</text>
+      <line x1="398" y1="392" x2="727" y2="392" stroke="#334155" stroke-width="1.6" marker-start="url(#ar)" marker-end="url(#ar)"/>
+      <rect x="508" y="379" width="108" height="26" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+      <text id="dimB" x="562" y="397" font-size="15" font-weight="700" fill="#0f172a" text-anchor="middle">b = 420 mm</text>
+    </svg>
+    </div>
+
+    <div class="meters" id="meters"></div>
+
+    <div class="panel">
+      <div class="ph"><h2>軸線の状態</h2><span>上下のずれは拡大表示</span></div>
+      <div class="axes">
+        <div><h3>上下（シム）</h3><div class="svgbox" id="svgV"></div></div>
+        <div><h3>左右（モーターを押す）</h3><div class="svgbox" id="svgH"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="sec-dim" class="panel">
+    <div class="ph"><h2>① 寸法</h2><span>mm・必須</span></div>
+    <div class="cfig">
+      <svg viewBox="0 0 120 120" role="img" aria-label="カップリング外径C">
+        <defs><marker id="amC" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="var(--meas)"/></marker></defs>
+        <circle cx="52" cy="60" r="48" fill="var(--mach-l)" stroke="var(--mach-d)" stroke-width="2"/>
+        <circle cx="52" cy="60" r="40" fill="none" stroke="var(--mach-d)" stroke-width="1" opacity=".5"/>
+        <circle cx="52" cy="60" r="11" fill="var(--panel)" stroke="var(--mach-d)" stroke-width="2"/>
+        <circle cx="52" cy="12" r="4" fill="var(--meas)"/><circle cx="52" cy="108" r="4" fill="var(--meas)"/>
+        <line x1="56" y1="12" x2="114" y2="12" stroke="var(--meas)" stroke-width="1"/>
+        <line x1="56" y1="108" x2="114" y2="108" stroke="var(--meas)" stroke-width="1"/>
+        <line x1="110" y1="14" x2="110" y2="106" stroke="var(--meas)" stroke-width="2" marker-start="url(#amC)" marker-end="url(#amC)"/>
+      </svg>
+      <p><b id="dimC">C = 120 mm</b><br>カップリングの外径。面ゲージの針はできるだけ外周近く（赤点）に当ててください。</p>
+    </div>
+    <div class="grid">
+      <label>C カップリング外径<input id="C" inputmode="decimal"></label>
+      <label>a カップリング中心→前足<input id="a" inputmode="decimal"></label>
+      <label>b カップリング中心→後足<input id="b" inputmode="decimal"></label>
+    </div>
+    <h3 class="sub-h">許容値 <span>mm・任意／入れるとOK判定と読み値チェックに使います</span></h3>
+    <div class="grid2">
+      <label>周（R）<input id="tR" inputmode="decimal"></label>
+      <label>面（F）<input id="tF" inputmode="decimal"></label>
+    </div>
+  </section>
+
+  <section id="sec-meas" class="panel">
+    <div class="ph"><h2>②③ ダイヤルゲージ</h2><span>12時＝0／押し込み＋</span></div>
+    <div class="dials">
+      <div class="gauge rim">
+        <div class="ghead">
+          <svg viewBox="0 0 54 36" aria-hidden="true"><line x1="2" y1="24" x2="52" y2="24" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3"/><rect x="21" y="12" width="12" height="22" rx="2" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="27" y1="0" x2="27" y2="7" stroke="currentColor" stroke-width="3"/><path d="M22 5 L27 11 L32 5 Z" fill="currentColor"/></svg>
+          <div><b>周（R）</b><span>外周に当てる／芯の上下・左右ズレ</span></div>
+        </div>
+        <div class="dial" id="dialR">
+          <div class="p12 zero">12時<i>0</i></div>
+          <label class="p9">9時<span class="field"><input id="r9" inputmode="decimal"><button class="pm" data-t="r9" aria-label="符号切替">±</button></span></label>
+          <div class="c"><b>周</b><small>R</small></div>
+          <label class="p3">3時<span class="field"><input id="r3" inputmode="decimal"><button class="pm" data-t="r3" aria-label="符号切替">±</button></span></label>
+          <label class="p6">6時<span class="field"><input id="r6" inputmode="decimal"><button class="pm" data-t="r6" aria-label="符号切替">±</button></span></label>
+        </div>
+        <div class="chk" id="chkR"></div>
+      </div>
+      <div class="gauge face">
+        <div class="ghead">
+          <svg viewBox="0 0 54 36" aria-hidden="true"><line x1="2" y1="24" x2="52" y2="24" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3"/><rect x="25" y="8" width="12" height="26" rx="2" fill="none" stroke="currentColor" stroke-width="2.5"/><line x1="4" y1="16" x2="15" y2="16" stroke="currentColor" stroke-width="3"/><path d="M13 11 L21 16 L13 21 Z" fill="currentColor"/></svg>
+          <div><b>面（F）</b><span>端面に当てる／軸の傾き</span></div>
+        </div>
+        <div class="dial" id="dialF">
+          <div class="p12 zero">12時<i>0</i></div>
+          <label class="p9">9時<span class="field"><input id="f9" inputmode="decimal"><button class="pm" data-t="f9" aria-label="符号切替">±</button></span></label>
+          <div class="c"><b>面</b><small>F</small></div>
+          <label class="p3">3時<span class="field"><input id="f3" inputmode="decimal"><button class="pm" data-t="f3" aria-label="符号切替">±</button></span></label>
+          <label class="p6">6時<span class="field"><input id="f6" inputmode="decimal"><button class="pm" data-t="f6" aria-label="符号切替">±</button></span></label>
+        </div>
+        <div class="chk" id="chkF"></div>
+      </div>
+    </div>
+    <p class="note">±ボタンでマイナスを入れられます。3時・9時は毎回同じ向き（例：モーター側から見て）で測ってください。</p>
+  </section>
+
+  <section id="sec-opt" class="panel">
+    <div class="ph"><h2>④⑤ たわみ補正・現在のシム</h2><span>任意</span></div>
+    <div class="grid2">
+      <label>たわみ補正 周（6時の値）<span class="field"><input id="sr" inputmode="decimal"><button class="pm" data-t="sr" aria-label="符号切替">±</button></span></label>
+      <label>たわみ補正 面（6時の値）<span class="field"><input id="sf" inputmode="decimal"><button class="pm" data-t="sf" aria-label="符号切替">±</button></span></label>
+      <label>現在シム 前足 左<input id="sAL" inputmode="decimal"></label>
+      <label>現在シム 前足 右<input id="sAR" inputmode="decimal"></label>
+      <label>現在シム 後足 左<input id="sBL" inputmode="decimal"></label>
+      <label>現在シム 後足 右<input id="sBR" inputmode="decimal"></label>
+    </div>
+    <p class="note">たわみ補正は、治具だけを12時ゼロで回したときの6時の読み。3時・9時には半分ずつ反映します。</p>
+  </section>
+
+  <div class="btns">
+    <button class="btn" id="sample">例題を入れる</button>
+    <button class="btn" id="clear">測定値をクリア</button>
+  </div>
+
+  <section class="panel">
+    <div class="ph"><h2>このアプリのQRコード</h2></div>
+    <div class="qr">
+      <div class="qrbox" id="qr" role="img" aria-label="このアプリへのQRコード"></div>
+      <p>スマホのカメラで読み取ると、このアプリが開きます。<br><span id="qrurl"></span></p>
+    </div>
+  </section>
+
+  <details class="panel">
+    <summary>計算式</summary>
+    <ul>
+      <li>上下：R＝−（周6時）、F＝面6時</li>
+      <li>左右：R＝周3時−周9時、F＝面9時−面3時</li>
+      <li>前足＝R÷2−(F÷C)×a　後足＝R÷2−(F÷C)×b</li>
+      <li>上下：＋はシムを足す／−は抜く。左右：＋は3時側へ／−は9時側へ</li>
+      <li>読み値チェック：3時＋9時＝6時（周・面それぞれの許容値以内。未入力なら±0.03mm）</li>
+    </ul>
+    <p>説明用の投稿の式がベースです。上記の取付・ゼロ位置以外では使わないでください。</p>
+  </details>
+</main>
+
+<script src="qrcode.js"></script>
+<script>
+const APP_URL=location.protocol.startsWith("http")?location.href.split("#")[0].split("?")[0]:"";
+(function(){const box=document.getElementById("qr");
+  if(!APP_URL){box.textContent="公開URLで開くとQRが出ます";return}
+  try{const q=qrcode(0,"M");q.addData(APP_URL);q.make();box.innerHTML=q.createSvgTag({cellSize:4,margin:2,scalable:true});}
+  catch(e){box.textContent="QRを表示できませんでした";}
+  document.getElementById("qrurl").textContent=APP_URL;})();
+const ids=["C","a","b","r3","r6","r9","f3","f6","f9","sr","sf","sAL","sAR","sBL","sBR","tR","tF"];
+const $=id=>document.getElementById(id);
+const SAMPLE={C:"120",a:"180",b:"420",r3:"-0.20",r6:"-0.32",r9:"-0.12",f3:"0.02",f6:"0.06",f9:"0.04",sr:"",sf:"",sAL:"0.20",sAR:"0.20",sBL:"0.20",sBR:"0.20",tR:"0.05",tF:"0.05"};
+const num=id=>{const v=parseFloat(($(id).value||"").replace(/[^\d.\-]/g,""));return isFinite(v)?v:null};
+const f2=v=>(Math.abs(v)<0.005?0:v).toFixed(2);
+const r2=v=>Math.round(v*100)/100;
+
+function load(){let d=null;try{d=JSON.parse(localStorage.getItem("shindashi")||"null")}catch(e){}
+  const src=d||SAMPLE; ids.forEach(i=>$(i).value=src[i]??"");}
+function save(){try{const d={};ids.forEach(i=>d[i]=$(i).value);localStorage.setItem("shindashi",JSON.stringify(d))}catch(e){}}
+
+function axisSvg(adjA,adjB,a,b,R,F,C,kind){
+  const W=640,H=200,x0=60,x1=W-40,y0=H/2;
+  const sx=L=>x0+(x1-x0)*L/b;
+  const dev=L=>-(R/2-(F/C)*L);
+  const m=Math.max(Math.abs(dev(0)),Math.abs(dev(a)),Math.abs(dev(b)),0.01);
+  const sy=v=>y0-v/m*60;
+  const pos=kind==="v"?["上","下"]:["3時側","9時側"];
+  const pA=[sx(a),sy(dev(a))],pB=[sx(b),sy(dev(b))];
+  const arrow=(x,y)=>Math.abs(y-y0)<2?"":`<line x1="${x}" y1="${y}" x2="${x}" y2="${y0+(y<y0?-4:4)}" stroke="var(--steel)" stroke-width="2" marker-end="url(#ah${kind})"/>`;
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:420px" role="img" aria-label="軸線の図">
+  <defs><marker id="ah${kind}" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="var(--steel)"/></marker></defs>
+  <rect x="0" y="0" width="${W}" height="${H}" rx="6" fill="var(--panel2)"/>
+  <text x="8" y="${y0-50}" font-size="12" fill="var(--muted)">${pos[0]}</text><text x="8" y="${y0+60}" font-size="12" fill="var(--muted)">${pos[1]}</text>
+  <line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y0}" stroke="var(--accent)" stroke-width="2"/>
+  <text x="${x1}" y="${y0-8}" font-size="11" text-anchor="end" fill="var(--accent)">目標（ポンプ軸線）</text>
+  <line x1="${sx(0)}" y1="${sy(dev(0))}" x2="${sx(b)}" y2="${sy(dev(b))}" stroke="var(--add)" stroke-width="2" stroke-dasharray="6 4"/>
+  ${[0,a,b].map((L,i)=>`<line x1="${sx(L)}" y1="${y0-75}" x2="${sx(L)}" y2="${y0+75}" stroke="var(--line)"/><text x="${sx(L)}" y="${H-6}" font-size="12" text-anchor="middle" fill="var(--fg)">${["カップリング中心","前足","後足"][i]}</text>`).join("")}
+  ${arrow(pA[0],pA[1])}${arrow(pB[0],pB[1])}
+  <circle cx="${pA[0]}" cy="${pA[1]}" r="4" fill="var(--add)"/><circle cx="${pB[0]}" cy="${pB[1]}" r="4" fill="var(--add)"/>
+  <text x="${sx(0)+4}" y="${sy(dev(0))+(dev(0)>0?-8:16)}" font-size="11" fill="var(--add)">モーター現在</text>
+  </svg>`;
+}
+
+function mcard(title,code,adj,kind,extra=""){
+  if(adj==null) return `<div class="mc none"><span class="mk">${title}<small>${code}</small></span><span class="mv">—</span><span class="ma">${kind==="h"?"3時・9時を入力":"入力待ち"}</span></div>`;
+  let cls,act,sign="";
+  if(kind==="v"){cls=adj>0?"add":adj<0?"rem":"zero";act=adj>0?"シムを足す":adj<0?"シムを抜く":"調整なし";sign=adj>0?"+":adj<0?"−":"";}
+  else{cls=adj===0?"zero":"mov";act=adj>0?"3時側へ押す":adj<0?"9時側へ押す":"調整なし";}
+  return `<div class="mc ${cls}"><span class="mk">${title}<small>${code}</small></span><span class="mv">${sign}${f2(Math.abs(adj))}<u>mm</u></span><span class="ma">${act}</span>${extra?`<span class="ms2">${extra}</span>`:""}</div>`;
+}
+
+function meter(lbl,v,tol){
+  if(v==null) return `<div class="mt"><div class="mh"><span>${lbl}</span><b>—</b></div><div class="tr"><i class="z"></i></div><div class="ms"><span></span><span>3時・9時を入力</span><span></span></div></div>`;
+  const range=Math.max(tol!=null?tol*2:0,Math.abs(v)*1.15,0.1);
+  const pct=x=>50+50*Math.max(-1,Math.min(1,x/range));
+  const ok=tol==null?null:Math.abs(r2(v))<=tol+1e-9;
+  const band=tol!=null?`<i class="band" style="left:${pct(-tol)}%;right:${100-pct(tol)}%"></i>`:"";
+  const k=ok==null?"":ok?"ok":"ng";
+  return `<div class="mt"><div class="mh"><span>${lbl}</span><b class="${ok==null?"":ok?"okc":"ngc"}">${f2(r2(v))}</b></div><div class="tr">${band}<i class="z"></i><i class="pt ${k}" style="left:${pct(v)}%"></i></div><div class="ms"><span>−${range.toFixed(2)}</span><span>${tol!=null?"許容 ±"+tol:"許容値なし"}</span><span>+${range.toFixed(2)}</span></div></div>`;
+}
+
+function calc(){
+  save();
+  const C=num("C"),a=num("a"),b=num("b");
+  $("dimA").textContent=`a = ${a??"—"} mm`; $("dimB").textContent=`b = ${b??"—"} mm`; $("dimC").textContent=`C = ${C??"—"} mm`;
+  let r3=num("r3"),r6=num("r6"),r9=num("r9"),f3=num("f3"),f6=num("f6"),f9=num("f9");
+  const sr=num("sr")||0,sf=num("sf")||0;
+  const tR=num("tR"),tF=num("tF");
+
+  // 読み値チェック（生値）
+  const chk=(el,x3,x6,x9,tol)=>{ if(x3==null||x6==null||x9==null){el.className="chk";el.textContent="";return null}
+    const d=r2(x3+x9-x6); const ok=Math.abs(d)<=tol+1e-9;
+    el.className="chk "+(ok?"ok":"warn");
+    el.textContent=ok?`読み値チェックOK（3時+9時−6時＝${f2(d)}／幅±${tol}）`:`読み値ズレ ${f2(d)}mm（幅±${tol}）測り直し推奨`; return ok};
+  const cR=chk($("chkR"),r3,r6,r9,tR??0.03), cF=chk($("chkF"),f3,f6,f9,tF??0.03);
+
+  const hd=$("hdStatus");
+  if(!C||!a||!b||r6==null||f6==null){
+    hd.className="chip"; hd.textContent="入力待ち";
+    $("metrics").innerHTML=`<div class="mc st"><span class="mk">判定</span><span class="mv">入力待ち</span><span class="ms2">C・a・b と 周/面の6時を入れると計算します</span></div>`
+      +mcard("前足A","上下",null,"v")+mcard("後足B","上下",null,"v")+mcard("前足A","左右",null,"h")+mcard("後足B","左右",null,"h");
+    $("meters").innerHTML=meter("上下 周",null)+meter("上下 面",null)+meter("左右 周",null)+meter("左右 面",null);
+    $("svgV").innerHTML=$("svgH").innerHTML=`<p class="note">計算すると表示されます。</p>`;return}
+
+  // たわみ補正
+  r6-=sr; f6-=sf; if(r3!=null)r3-=sr/2; if(r9!=null)r9-=sr/2; if(f3!=null)f3-=sf/2; if(f9!=null)f9-=sf/2;
+
+  // 上下
+  const Rv=-r6,Fv=f6;
+  const vA=r2(Rv/2-(Fv/C)*a), vB=r2(Rv/2-(Fv/C)*b);
+  const shim=(l,r,adj)=>{const s=[];if(l!=null)s.push(`左 ${l.toFixed(2)}→<b>${(l+adj).toFixed(2)}</b>`);if(r!=null)s.push(`右 ${r.toFixed(2)}→<b>${(r+adj).toFixed(2)}</b>`);
+    return s.join("／")+((l!=null&&l+adj<0)||(r!=null&&r+adj<0)?"（シム不足）":"")};
+
+  // 左右
+  let Rh=null,Fh=null,hA=null,hB=null;
+  if(r3!=null&&r9!=null&&f3!=null&&f9!=null){Rh=r3-r9;Fh=f9-f3;hA=r2(Rh/2-(Fh/C)*a);hB=r2(Rh/2-(Fh/C)*b);}
+
+  // 判定
+  let stCls="",stTxt="許容値未入力",stSub="許容値を入れるとOK判定します";
+  if(tR!=null||tF!=null){
+    const jR=tR==null||(Math.abs(r2(Rv))<=tR+1e-9&&(Rh==null||Math.abs(r2(Rh))<=tR+1e-9));
+    const jF=tF==null||(Math.abs(r2(Fv))<=tF+1e-9&&(Fh==null||Math.abs(r2(Fh))<=tF+1e-9));
+    const ok=jR&&jF; stCls=ok?"ok":"ng"; stTxt=ok?"許容値内":"調整が必要";
+    stSub=`許容 周±${tR??"—"}／面±${tF??"—"}`;
+  }
+  hd.className="chip "+stCls; hd.textContent=stTxt;
+  const tags=[cR,cF].map((c,i)=>c==null?"":`<span class="tag ${c?"ok":"warn"}">${i?"面":"周"} 読み値${c?"OK":"ズレ"}</span>`).join("");
+
+  $("metrics").innerHTML=`<div class="mc st ${stCls}"><span class="mk">判定<small>STATUS</small></span><span class="mv">${stTxt}</span><span class="ms2">${stSub}</span>${tags?`<div class="rc">${tags}</div>`:""}</div>`
+    +mcard("前足A","上下",vA,"v",shim(num("sAL"),num("sAR"),vA))
+    +mcard("後足B","上下",vB,"v",shim(num("sBL"),num("sBR"),vB))
+    +mcard("前足A","左右",hA,"h")+mcard("後足B","左右",hB,"h");
+
+  $("meters").innerHTML=meter("上下 周",Rv,tR)+meter("上下 面",Fv,tF)+meter("左右 周",Rh,tR)+meter("左右 面",Fh,tF);
+  $("svgV").innerHTML=axisSvg(vA,vB,a,b,Rv,Fv,C,"v");
+  $("svgH").innerHTML=Rh==null?`<p class="note">3時・9時を入れると表示されます。</p>`:axisSvg(hA,hB,a,b,Rh,Fh,C,"h");
+}
+
+document.querySelectorAll(".pm").forEach(btn=>btn.addEventListener("click",()=>{
+  const el=$(btn.dataset.t); let v=el.value.trim();
+  el.value=v.startsWith("-")?v.slice(1):("-"+(v||"")); calc(); el.focus();}));
+ids.forEach(i=>$(i).addEventListener("input",calc));
+$("sample").addEventListener("click",()=>{ids.forEach(i=>$(i).value=SAMPLE[i]);calc()});
+$("clear").addEventListener("click",()=>{["r3","r6","r9","f3","f6","f9","sr","sf"].forEach(i=>$(i).value="");calc()});
+
+// タブ
+const tabs=[...document.querySelectorAll(".tabs button")];
+tabs.forEach(t=>t.addEventListener("click",()=>{$(t.dataset.go).scrollIntoView({block:"start"});}));
+try{
+  const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){tabs.forEach(t=>t.classList.toggle("on",t.dataset.go===e.target.id))}})},{rootMargin:"-45% 0px -50% 0px"});
+  tabs.forEach(t=>io.observe($(t.dataset.go)));
+}catch(e){}
+// オフライン対応
+if("serviceWorker" in navigator&&location.protocol==="https:"){navigator.serviceWorker.register("sw.js").catch(()=>{});}
+const netEl=document.getElementById("net");const upd=()=>{netEl.hidden=navigator.onLine};
+addEventListener("online",upd);addEventListener("offline",upd);upd();
+load(); calc();
+</script>
+
+</body>
+</html>
