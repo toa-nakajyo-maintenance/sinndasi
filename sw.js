@@ -1,7 +1,7 @@
 // 芯出し計算 オフライン用
 // アプリを更新したら、下の版数を1つ上げる（例: v1 → v2）
-const CACHE = "shindashi-v1";
-const FILES = ["./", "index.html", "qrcode.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png"];
+const CACHE = "shindashi-v3";
+const FILES = ["./", "index.html", "qrcode.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "images/machine.jpg"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));

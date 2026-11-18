@@ -73,7 +73,8 @@ section{scroll-margin-top:calc(env(safe-area-inset-top,0px) + 100px)}
 /* 機械ビュー */
 .view{padding:0;overflow:hidden}
 .view .ph{padding:12px 14px 0}
-.machine{width:100%;height:auto;display:block}
+.mfig{position:relative}.mfig img{width:100%;height:auto;display:block}.mfig .mov{position:absolute;inset:0;width:100%;height:100%}
+
 
 /* メーター */
 .meters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
@@ -167,137 +168,32 @@ details li,details p{font-size:13px;color:var(--muted)}
 
     <div class="panel view">
       <div class="ph"><h2>機器配置</h2><span>PUMP FIXED / MOTOR MOVE</span></div>
-      <svg class="machine" viewBox="0 0 900 430" role="img" aria-label="左がポンプ（固定）、右がモーター（調整）。カップリング中心から前足A・後足Bまでの距離a・b">
-      <defs>
-        <linearGradient id="st-wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9ecef"/><stop offset=".68" stop-color="#f7f8f9"/><stop offset=".69" stop-color="#e3e7eb"/><stop offset="1" stop-color="#cfd5db"/></linearGradient>
-        <radialGradient id="st-spot" cx=".55" cy=".45" r=".6"><stop offset="0" stop-color="#ffffff" stop-opacity=".9"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
-        <linearGradient id="cy-h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f6fc0"/><stop offset=".18" stop-color="#7fb4f2"/><stop offset=".45" stop-color="#2a6ec7"/><stop offset=".8" stop-color="#0e3675"/><stop offset="1" stop-color="#071d42"/></linearGradient>
-        <linearGradient id="st-h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b9c1c9"/><stop offset=".18" stop-color="#ffffff"/><stop offset=".45" stop-color="#eef1f3"/><stop offset=".8" stop-color="#b3bcc5"/><stop offset="1" stop-color="#848f9a"/></linearGradient>
-        <linearGradient id="cy-v" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0e3675"/><stop offset=".3" stop-color="#79b3f7"/><stop offset=".6" stop-color="#2a6ec7"/><stop offset="1" stop-color="#0c2d61"/></linearGradient>
-        <linearGradient id="cy-dark" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8d98a3"/><stop offset=".25" stop-color="#d7dde3"/><stop offset=".7" stop-color="#7d8894"/><stop offset="1" stop-color="#4f5963"/></linearGradient>
-        <radialGradient id="vol" cx=".38" cy=".32" r=".75"><stop offset="0" stop-color="#8cc0fa"/><stop offset=".45" stop-color="#2a6ec7"/><stop offset=".8" stop-color="#11407f"/><stop offset="1" stop-color="#071d42"/></radialGradient>
-        <linearGradient id="face" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4b8cd9"/><stop offset="1" stop-color="#0e3675"/></linearGradient>
-        <linearGradient id="top" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9cc8fb"/><stop offset="1" stop-color="#4b8cd9"/></linearGradient>
-        <linearGradient id="bs-top" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e2e6ea"/></linearGradient>
-        <linearGradient id="side" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1e5cb3"/><stop offset="1" stop-color="#0b2f66"/></linearGradient>
-        <linearGradient id="bs-side" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c7ced5"/><stop offset="1" stop-color="#97a2ad"/></linearGradient>
-        <linearGradient id="shim" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#c9a227"/><stop offset=".5" stop-color="#f6e7a0"/><stop offset="1" stop-color="#a8861f"/></linearGradient>
-        <filter id="sh" x="-10%" y="-10%" width="120%" height="140%"><feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#2a333c" flood-opacity=".18"/></filter>
-        <filter id="blur"><feGaussianBlur stdDeviation="6"/></filter>
-        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#334155"/></marker>
-      </defs>
-
-      <!-- スタジオ背景 -->
-      <rect x="0" y="0" width="900" height="430" rx="10" fill="url(#st-wall)"/>
-      <ellipse cx="480" cy="190" rx="460" ry="200" fill="url(#st-spot)"/>
-
-      <!-- 共通ベース（上面＋前面） -->
-      <ellipse cx="455" cy="300" rx="420" ry="14" fill="#1f2730" opacity=".18" filter="url(#blur)"/>
-      <polygon points="70,262 840,262 860,280 50,280" fill="url(#bs-top)" stroke="#aab4be" stroke-width="1"/>
-      <rect x="50" y="280" width="810" height="18" fill="url(#bs-side)" stroke="#8f9aa5" stroke-width="1"/>
-      <g fill="#8f9aa5"><circle cx="90" cy="271" r="4"/><circle cx="820" cy="271" r="4"/></g>
-
-      <!-- ===== ポンプ ===== -->
-      <g filter="url(#sh)">
-        <!-- 脚 -->
-        <path d="M150,262 L162,214 L258,214 L270,262 Z" fill="url(#face)" stroke="#123f80"/>
-        <rect x="140" y="256" width="140" height="8" rx="2" fill="url(#cy-dark)"/>
-        <path d="M290,262 L298,196 L330,196 L338,262 Z" fill="url(#face)" stroke="#123f80"/>
-        <!-- 吸込ノズル -->
-        <rect x="104" y="146" width="56" height="48" fill="url(#cy-h)"/>
-        <ellipse cx="104" cy="170" rx="11" ry="34" fill="url(#cy-v)" stroke="#0b2f66"/>
-        <ellipse cx="101" cy="170" rx="6" ry="20" fill="#0b1b36"/>
-        <!-- 吐出ノズル -->
-        <rect x="186" y="74" width="48" height="52" fill="url(#cy-v)"/>
-        <ellipse cx="210" cy="74" rx="34" ry="10" fill="url(#top)" stroke="#0b2f66"/>
-        <ellipse cx="210" cy="72" rx="20" ry="5.5" fill="#0b1b36"/>
-        <!-- ボリュート -->
-        <circle cx="210" cy="172" r="64" fill="url(#vol)" stroke="#0b2f66"/>
-        <path d="M210,108 A64,64 0 0 1 274,172" fill="none" stroke="#b9dafc" stroke-width="3" opacity=".7"/>
-        <circle cx="210" cy="172" r="44" fill="none" stroke="#123f80" stroke-width="2"/>
-        <g fill="#dbe7f5"><circle cx="210" cy="114" r="3"/><circle cx="262" cy="150" r="3"/><circle cx="262" cy="194" r="3"/><circle cx="210" cy="230" r="3"/><circle cx="158" cy="194" r="3"/><circle cx="158" cy="150" r="3"/></g>
-        <!-- 軸受フレーム -->
-        <rect x="268" y="140" width="80" height="62" rx="6" fill="url(#cy-h)" stroke="#123f80"/>
-        <g stroke="#0b2f66" stroke-width="2"><line x1="285" y1="142" x2="285" y2="200"/><line x1="305" y1="142" x2="305" y2="200"/><line x1="325" y1="142" x2="325" y2="200"/></g>
-        <rect x="262" y="148" width="10" height="46" rx="3" fill="url(#cy-dark)"/>
-        <rect x="346" y="152" width="10" height="38" rx="3" fill="url(#cy-dark)"/>
-        <!-- 軸 -->
-        <rect x="356" y="164" width="16" height="14" fill="url(#cy-dark)"/>
-      </g>
-
-      <!-- ===== カップリング ===== -->
-      <g filter="url(#sh)">
-        <rect x="372" y="144" width="22" height="54" rx="3" fill="url(#st-h)" stroke="#8f9aa5"/>
-        <rect x="398" y="144" width="22" height="54" rx="3" fill="url(#st-h)" stroke="#8f9aa5"/>
-        <rect x="393" y="152" width="6" height="38" fill="#3d4652"/>
-        <g fill="#6b7682"><circle cx="383" cy="152" r="2.5"/><circle cx="409" cy="152" r="2.5"/><circle cx="383" cy="190" r="2.5"/><circle cx="409" cy="190" r="2.5"/></g>
-      </g>
-
-      <!-- ===== モーター ===== -->
-      <g filter="url(#sh)">
-        <!-- 足 -->
-        <path d="M478,254 L486,222 L552,222 L560,254 Z" fill="url(#face)" stroke="#123f80"/>
-        <path d="M688,254 L696,222 L762,222 L770,254 Z" fill="url(#face)" stroke="#123f80"/>
-        <!-- 軸 -->
-        <rect x="420" y="164" width="30" height="14" fill="url(#cy-dark)"/>
-        <!-- 前側エンドブラケット -->
-        <path d="M448,112 Q436,112 436,124 L436,218 Q436,230 448,230 L470,230 L470,112 Z" fill="url(#cy-h)" stroke="#0b2f66"/>
-        <ellipse cx="438" cy="171" rx="5" ry="18" fill="url(#cy-dark)"/>
-        <!-- 本体 -->
-        <rect x="466" y="100" width="300" height="142" rx="8" fill="url(#cy-h)" stroke="#0b2f66"/>
-        <g stroke-width="2">
-          <g stroke="#8cbdf5" opacity=".55"><line x1="472" y1="110" x2="760" y2="110"/><line x1="472" y1="122" x2="760" y2="122"/><line x1="472" y1="134" x2="760" y2="134"/><line x1="472" y1="146" x2="760" y2="146"/><line x1="472" y1="158" x2="760" y2="158"/><line x1="472" y1="170" x2="760" y2="170"/><line x1="472" y1="182" x2="760" y2="182"/><line x1="472" y1="194" x2="760" y2="194"/><line x1="472" y1="206" x2="760" y2="206"/><line x1="472" y1="218" x2="760" y2="218"/><line x1="472" y1="230" x2="760" y2="230"/></g>
-          <g stroke="#071d42" opacity=".55"><line x1="472" y1="113" x2="760" y2="113"/><line x1="472" y1="125" x2="760" y2="125"/><line x1="472" y1="137" x2="760" y2="137"/><line x1="472" y1="149" x2="760" y2="149"/><line x1="472" y1="161" x2="760" y2="161"/><line x1="472" y1="173" x2="760" y2="173"/><line x1="472" y1="185" x2="760" y2="185"/><line x1="472" y1="197" x2="760" y2="197"/><line x1="472" y1="209" x2="760" y2="209"/><line x1="472" y1="221" x2="760" y2="221"/><line x1="472" y1="233" x2="760" y2="233"/></g>
+      <div class="mfig"><img src="images/machine.jpg" alt="ポンプ（固定）とモーター（調整）。カップリング中心から前足A・後足Bまでの距離a・b" width="1200" height="800">
+      <svg class="mov" viewBox="0 0 1536 1024" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#334155"/></marker></defs>
+        <g font-family="BIZ UDPGothic,Hiragino Sans,Yu Gothic,sans-serif" font-weight="700" text-anchor="middle">
+          <rect x="130" y="50" width="230" height="52" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="3"/>
+          <text x="245" y="87" font-size="30" fill="#1e293b">ポンプ（固定）</text>
+          <rect x="1050" y="50" width="270" height="52" rx="8" fill="#ffffff" stroke="#c8321e" stroke-width="3"/>
+          <text x="1185" y="87" font-size="30" fill="#c8321e">モーター（調整）</text>
+          <line x1="768" y1="400" x2="768" y2="1000" stroke="#c8321e" stroke-width="4" stroke-dasharray="14 9"/>
+          <rect x="658" y="350" width="220" height="46" rx="8" fill="#ffffff" stroke="#c8321e" stroke-width="3"/>
+          <text x="768" y="383" font-size="26" fill="#c8321e">カップリング中心</text>
+          <line x1="1005" y1="700" x2="1005" y2="1000" stroke="#334155" stroke-width="3" stroke-dasharray="8 7"/>
+          <line x1="1250" y1="700" x2="1250" y2="1000" stroke="#334155" stroke-width="3" stroke-dasharray="8 7"/>
+          <circle cx="1005" cy="690" r="11" fill="#c8321e" stroke="#ffffff" stroke-width="4"/>
+          <circle cx="1250" cy="690" r="11" fill="#c8321e" stroke="#ffffff" stroke-width="4"/>
+          <rect x="945" y="785" width="120" height="44" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="3"/><text x="1005" y="817" font-size="26" fill="#1e293b">前足A</text>
+          <rect x="1190" y="785" width="120" height="44" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="3"/><text x="1250" y="817" font-size="26" fill="#1e293b">後足B</text>
+          <line x1="772" y1="905" x2="1001" y2="905" stroke="#334155" stroke-width="3.5" marker-start="url(#ar)" marker-end="url(#ar)"/>
+          <rect x="797" y="881" width="178" height="48" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="3"/>
+          <text id="dimA" x="886" y="915" font-size="28" fill="#0f172a">a = 180 mm</text>
+          <line x1="772" y1="975" x2="1246" y2="975" stroke="#334155" stroke-width="3.5" marker-start="url(#ar)" marker-end="url(#ar)"/>
+          <rect x="920" y="951" width="178" height="48" rx="8" fill="#ffffff" stroke="#94a3b8" stroke-width="3"/>
+          <text id="dimB" x="1009" y="985" font-size="28" fill="#0f172a">b = 420 mm</text>
         </g>
-        <!-- 端子箱 -->
-        <polygon points="570,84 650,84 662,74 582,74" fill="url(#top)" stroke="#123f80"/>
-        <rect x="570" y="84" width="80" height="20" fill="url(#face)" stroke="#123f80"/>
-        <polygon points="650,84 662,74 662,94 650,104" fill="url(#side)" stroke="#123f80"/>
-        <!-- アイボルト -->
-        <circle cx="706" cy="84" r="10" fill="none" stroke="#8f9aa5" stroke-width="4"/>
-        <rect x="702" y="92" width="8" height="10" fill="url(#cy-dark)"/>
-        <!-- 後側エンドブラケット・ファンカバー -->
-        <rect x="762" y="110" width="16" height="122" rx="4" fill="url(#cy-h)" stroke="#0b2f66"/>
-        <path d="M778,116 L820,122 Q836,124 836,140 L836,202 Q836,218 820,220 L778,226 Z" fill="url(#cy-h)" stroke="#0b2f66"/>
-        <g fill="#071d42" opacity=".6"><rect x="792" y="132" width="3" height="78"/><rect x="802" y="132" width="3" height="78"/><rect x="812" y="134" width="3" height="74"/><rect x="822" y="138" width="3" height="66"/></g>
-      </g>
-      <!-- シム・足ボルト -->
-      <rect x="474" y="254" width="90" height="8" fill="url(#shim)" stroke="#8a6d16" stroke-width=".8"/>
-      <rect x="684" y="254" width="90" height="8" fill="url(#shim)" stroke="#8a6d16" stroke-width=".8"/>
-      <g fill="url(#cy-dark)" stroke="#56616c" stroke-width=".8">
-        <rect x="510" y="214" width="18" height="10" rx="1"/><rect x="720" y="214" width="18" height="10" rx="1"/>
-      </g>
-      <g stroke="#56616c" stroke-width="3"><line x1="519" y1="224" x2="519" y2="262"/><line x1="729" y1="224" x2="729" y2="262"/></g>
-
-      <!-- ラベル -->
-      <g font-weight="700" text-anchor="middle">
-        <rect x="140" y="22" width="140" height="28" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
-        <text x="210" y="42" font-size="16" fill="#1e293b">ポンプ（固定）</text>
-        <rect x="546" y="22" width="160" height="28" rx="4" fill="#ffffff" stroke="#c8321e" stroke-width="1.5"/>
-        <text x="626" y="42" font-size="16" fill="#c8321e">モーター（調整）</text>
-      </g>
-
-      <!-- カップリング中心 -->
-      <line x1="396" y1="70" x2="396" y2="404" stroke="#c8321e" stroke-width="2" stroke-dasharray="6 4"/>
-      <rect x="336" y="44" width="120" height="24" rx="4" fill="#ffffff" stroke="#c8321e" stroke-width="1.5"/>
-      <text x="396" y="61" font-size="14" font-weight="700" fill="#c8321e" text-anchor="middle">カップリング中心</text>
-
-      <!-- 前足A・後足B -->
-      <line x1="519" y1="298" x2="519" y2="404" stroke="#64748b" stroke-dasharray="3 3"/>
-      <line x1="729" y1="298" x2="729" y2="404" stroke="#64748b" stroke-dasharray="3 3"/>
-      <g font-size="14" font-weight="700" text-anchor="middle" fill="#1e293b">
-        <rect x="489" y="304" width="60" height="22" rx="4" fill="#ffffff" stroke="#94a3b8"/><text x="519" y="320">前足A</text>
-        <rect x="699" y="304" width="60" height="22" rx="4" fill="#ffffff" stroke="#94a3b8"/><text x="729" y="320">後足B</text>
-      </g>
-
-      <!-- 寸法 a / b -->
-      <line x1="398" y1="352" x2="517" y2="352" stroke="#334155" stroke-width="1.6" marker-start="url(#ar)" marker-end="url(#ar)"/>
-      <rect x="403" y="339" width="108" height="26" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
-      <text id="dimA" x="457" y="357" font-size="15" font-weight="700" fill="#0f172a" text-anchor="middle">a = 180 mm</text>
-      <line x1="398" y1="392" x2="727" y2="392" stroke="#334155" stroke-width="1.6" marker-start="url(#ar)" marker-end="url(#ar)"/>
-      <rect x="508" y="379" width="108" height="26" rx="4" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
-      <text id="dimB" x="562" y="397" font-size="15" font-weight="700" fill="#0f172a" text-anchor="middle">b = 420 mm</text>
-    </svg>
+      </svg>
+      </div>
     </div>
 
     <div class="meters" id="meters"></div>
